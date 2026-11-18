@@ -1,0 +1,22 @@
+#!/bin/bash
+# On-demand Drive access: rclone + 1Password CLI + Drive key. Safe to run again.
+set -e
+if ! command -v rclone >/dev/null; then
+  curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
+  unzip -qo /tmp/rclone.zip -d /tmp/rclone
+  install -m 755 /tmp/rclone/rclone-*-linux-amd64/rclone /usr/local/bin/rclone
+  rm -rf /tmp/rclone.zip /tmp/rclone
+fi
+if ! command -v op >/dev/null; then
+  curl -fsSL https://cache.agilebits.com/dist/1P/op2/pkg/v2.30.3/op_linux_amd64_v2.30.3.zip -o /tmp/op.zip
+  unzip -qo /tmp/op.zip -d /tmp/op
+  install -m 755 /tmp/op/op /usr/local/bin/op
+  rm -rf /tmp/op.zip /tmp/op
+fi
+KEY="${RCLONE_CONFIG_PDRIVE_SERVICE_ACCOUNT_FILE:-$HOME/.config/rclone/sa.json}"
+if [ ! -s "$KEY" ]; then
+  mkdir -p "$(dirname "$KEY")"
+  op document get "${OP_DRIVE_KEY_ITEM:?set OP_DRIVE_KEY_ITEM to the 1Password document holding the key}" --vault "${OP_DRIVE_KEY_VAULT:-Agents}" --out-file "$KEY" --force >/dev/null
+  chmod 600 "$KEY"
+fi
+rclone lsf pdrive: --max-depth 1 >/dev/null 2>&1 && echo "drive-setup: ok (rclone pdrive: is ready, read-only)"

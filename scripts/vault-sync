@@ -1,0 +1,38 @@
+#!/bin/bash
+# Safe vault sync. Installs ob if missing, links ~/vault the first time, then syncs.
+# One sync at a time (lock). Never kill it: a sync cut off halfway can push deletions.
+# If the FIRST sync in this container fails, the partial copy is unlinked and wiped and
+# the sync starts fresh (up to 3 tries): a fresh copy has no state, so it can't push deletions.
+#   vault-sync           run a sync (or say one is already running)
+#   vault-sync --status  ready | syncing | not synced yet
+VAULT="$(realpath -m "${VAULT:-$HOME/vault}")"; STATE="$HOME/.vault-sync"; mkdir -p "$STATE"
+if [ "$1" = "--status" ]; then
+  if ! flock -n "$STATE/lock" true; then echo "syncing"; elif [ -f "$STATE/ok" ]; then echo "ready (last sync $(date -r "$STATE/ok" '+%H:%M'))"; else echo "not synced yet"; fi
+  exit 0
+fi
+exec 9>"$STATE/lock"
+flock -n 9 || { echo "vault-sync: already running; check with: vault-sync --status"; exit 0; }
+command -v ob >/dev/null || npm install -g --no-fund --no-audit obsidian-headless@0.0.14 >"$STATE/install.log" 2>&1 \
+  || { echo "vault-sync: ob install FAILED (see $STATE/install.log)"; exit 1; }
+link() {
+  mkdir -p "$VAULT"
+  ob sync-setup --vault "$OBSIDIAN_VAULT_NAME" --path "$VAULT" --device-name claude-cloud \
+    ${OBSIDIAN_VAULT_PASSWORD:+--password "$OBSIDIAN_VAULT_PASSWORD"} >"$STATE/setup.log" 2>&1 \
+    && ob sync-config --path "$VAULT" --conflict-strategy merge >>"$STATE/setup.log" 2>&1
+}
+if [ -f "$STATE/ok" ]; then
+  # Established copy: normal sync.
+  if ob sync --path "$VAULT" >"$STATE/sync.log" 2>&1; then touch "$STATE/ok"; echo "vault-sync: ready ($VAULT)"; exit 0; fi
+  echo "vault-sync: sync FAILED (see $STATE/sync.log); the copy is complete, safe to retry"; exit 1
+fi
+# First sync in this container.
+for try in 1 2 3; do
+  if ! ob sync-status --path "$VAULT" >/dev/null 2>&1; then
+    [ -d "$VAULT" ] && [ -n "$(ls -A "$VAULT" 2>/dev/null)" ] && { echo "vault-sync: $VAULT is not empty and not linked; refusing (move it away first)"; exit 1; }
+    link || { echo "vault-sync: setup FAILED (see $STATE/setup.log)"; exit 1; }
+  fi
+  if ob sync --path "$VAULT" >"$STATE/sync.log" 2>&1; then touch "$STATE/ok"; echo "vault-sync: ready ($VAULT)"; exit 0; fi
+  echo "vault-sync: first sync failed (try $try); wiping the partial copy and starting fresh"
+  ob sync-unlink --path "$VAULT" >/dev/null 2>&1; rm -rf "$VAULT"; sleep 10
+done
+echo "vault-sync: FAILED after 3 fresh tries (see $STATE/sync.log)"; exit 1

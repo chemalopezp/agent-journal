@@ -1,0 +1,11 @@
+{
+  "name": "agent-journal",
+  "owner": { "name": "agent-journal" },
+  "plugins": [
+    {
+      "name": "journal",
+      "source": "./",
+      "description": "Personal markdown journal maintained by agents: digests, weekly review, imports, capture."
+    }
+  ]
+}
