@@ -4,7 +4,7 @@
 # awareness) and its two scripts (vault-sync, drive-setup), then writes the Claude instructions.
 # The session itself syncs the vault in the background with `vault-sync`.
 #
-# Needs network access to codeload.github.com.
+# Needs network access to codeload.github.com (release tarball) or github.com (git clone fallback).
 # Optional: AGENT_JOURNAL_REPO (default below) and AGENT_JOURNAL_VERSION (a tag).
 REPO="${AGENT_JOURNAL_REPO:-chemalopezp/agent-journal}"
 VERSION="${AGENT_JOURNAL_VERSION:-v0.1.0}"
@@ -13,10 +13,16 @@ log() { echo "[setup] $*"; }
 
 log "journal skill"
 TMP="$(mktemp -d)"
-if curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/tags/$VERSION" | tar -xz -C "$TMP" \
-   && [ -f "$TMP"/*/skills/journal/SKILL.md ]; then
-  mkdir -p "$HOME/.claude/skills" && rm -rf "$SKILL" && cp -r "$TMP"/*/skills/journal "$SKILL" && log "skill ok ($VERSION)"
-else log "skill FAILED to download ($REPO $VERSION)"; fi
+# The release tarball first; if the network blocks codeload.github.com, a shallow git clone of the tag.
+if curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/tags/$VERSION" 2>/dev/null | tar -xz -C "$TMP" 2>/dev/null \
+   && [ -f "$TMP"/*/skills/journal/SKILL.md ]; then SRC="$(echo "$TMP"/*)"; HOW="tarball"
+elif rm -rf "$TMP" && mkdir -p "$TMP" \
+   && git clone -q --depth 1 --branch "$VERSION" "https://github.com/$REPO.git" "$TMP/repo" 2>/dev/null \
+   && [ -f "$TMP/repo/skills/journal/SKILL.md" ]; then SRC="$TMP/repo"; HOW="git clone"
+fi
+if [ -n "$SRC" ]; then
+  mkdir -p "$HOME/.claude/skills" && rm -rf "$SKILL" && cp -r "$SRC/skills/journal" "$SKILL" && log "skill ok ($VERSION, $HOW)"
+else log "skill FAILED to download ($REPO $VERSION): allow codeload.github.com or github.com in the network settings"; fi
 rm -rf "$TMP"
 
 for s in memory/scripts/vault-sync engine/connectors/drive-setup; do

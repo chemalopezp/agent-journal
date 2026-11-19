@@ -34,7 +34,7 @@ Start Claude Code in the vault folder and say "set up my journal here". It creat
    ```
    Then copy the token from `~/.obsidian-headless/auth_token`. Obsidian's docs only say to set `OBSIDIAN_AUTH_TOKEN` for non-interactive use; the file location is what users report, and may change between versions. Don't run `ob logout` afterwards: it invalidates the token.
 2. **Set the environment variables** in the cloud environment: `OBSIDIAN_AUTH_TOKEN` and `OBSIDIAN_VAULT_PASSWORD` (if encrypted) as **secrets**, and `OBSIDIAN_VAULT_NAME`. The full list is in [agents/README.md](../README.md#environment-variables). Never paste the token into a chat, the vault or this repo.
-3. **Allow** `codeload.github.com` in the environment's network settings.
+3. **Allow** `codeload.github.com` in the environment's network settings. If you can't, the script falls back to a `git clone` from `github.com`, which most environments allow.
 4. **Paste [`setup-script.sh`](setup-script.sh)** into the environment's setup script. It runs before every fresh session and stays fast. It installs:
    - **The journal skill** (`instructions/`, `memory/`, `engine/`) into `~/.claude/skills/journal/`, from a tagged release. Optional variables: `AGENT_JOURNAL_REPO` (a fork) and `AGENT_JOURNAL_VERSION` (a tag).
    - **`vault-sync`** (from `memory/scripts/`): installs Obsidian Headless if missing, links `~/vault` the first time, and syncs. One sync at a time. If the **first** sync in a container fails partway, it wipes the partial copy and starts fresh (up to 3 tries): a half-downloaded copy must never sync, because it would push the missing files as deletions.
