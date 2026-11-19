@@ -1,5 +1,5 @@
 {
   "name": "journal",
-  "description": "Personal markdown journal maintained by agents: digests, weekly review, imports, capture.",
+  "description": "Make any AI agent your personal agent: instructions, context (a markdown vault) and awareness (runs and connectors).",
   "version": "0.1.0"
 }

@@ -1,0 +1,53 @@
+# What's open across all scopes. Edit freely: this file is yours once it's in the vault.
+filters:
+  or:
+    - 'type == "task"'
+    - 'type == "project"'
+    - 'type == "goal"'
+    - 'type == "event"'
+    - 'type == "case"'
+    - 'type == "decision"'
+views:
+  - type: table
+    name: Open
+    filters:
+      and:
+        - 'status == "open"'
+    order:
+      - file.name
+      - type
+      - due
+      - tags
+      - file.folder
+    sort:
+      - property: due
+        direction: ASC
+  - type: table
+    name: Waiting
+    filters:
+      and:
+        - 'status == "waiting"'
+    order:
+      - file.name
+      - type
+      - waiting
+      - due
+  - type: table
+    name: Someday
+    filters:
+      and:
+        - 'status == "someday"'
+    order:
+      - file.name
+      - type
+      - file.folder
+  - type: table
+    name: Triage
+    filters:
+      and:
+        - 'status == "triage"'
+    order:
+      - file.name
+      - type
+      - file.folder
+      - file.mtime
